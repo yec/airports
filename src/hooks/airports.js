@@ -74,7 +74,7 @@ function useAirports(ref) {
   const dispatch = useDispatch();
 
   const { airports } = useSelector(state => ({
-    airports: state.airports.visible,
+    airports: state.airports,
   }));
 
   // var airports = {};
@@ -100,7 +100,7 @@ function useAirports(ref) {
       setObjectLength(objectLength);
 
       var bounced = handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, dispatch, bytesPerAirport, contentLength, objectLength);
-      onScroll = debounce(bounced, 50);
+      onScroll = debounce(bounced, 10);
 
       /// run once manually, scroll events will trigger it later
       onScroll();
@@ -116,7 +116,7 @@ function useAirports(ref) {
     []);
 
 
-  return [airports, isLoading, numberOfAirports, pages, contentLength, objectLength];
+  return [airports.visible, isLoading, numberOfAirports, pages, contentLength, objectLength];
 }
 
 const listItemHeight = 100;
@@ -201,7 +201,7 @@ function getIndicesOf(searchStr, str, caseSensitive = false) {
 
 var dataBuffer = new ArrayBuffer(0);
 
-async function fetchAirportRange(offset, items, objectLength) {
+async function fetchAirportRange(offset, items, objectLength, airports) {
 
   var begin = offset * objectLength;
   var end = begin + items * objectLength;
@@ -214,7 +214,13 @@ async function fetchAirportRange(offset, items, objectLength) {
 
   for (var i = 0; i < indices.length; i++) {
 
-    var [airport, begin, end] = getAirport(text, indices[i]);
+    var airport, begin, end;
+    if (airports.range && airports.range[offset + i] != null) {
+      airport = airports.range[ "" + (offset + i)];
+    } else {
+      [airport, begin, end] = getAirport(text, indices[i]);
+    }
+
     if (airport != null) {
       airport.delta = offset + i;
       airports[airport.airportCode] = airport;
@@ -233,7 +239,7 @@ function handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cu
     var offset = Math.floor(-bounding.top / 100);
     var items = Math.ceil(window.innerHeight / 100);
     setIsLoading(true);
-    var airports = await fetchAirportRange(Math.max(offset, 0), items, objectLength);
+    var airports = await fetchAirportRange(Math.max(offset, 0), items + 3, objectLength, airports);
     dispatch(setAirports(airports));
     setIsLoading(false);
   }

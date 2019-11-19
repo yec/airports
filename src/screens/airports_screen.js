@@ -77,11 +77,8 @@ function AirportsScreen() {
       Airports approx {Math.round(contentLength/objectLength)}
   </Typography>
     <List ref={listViewRef} component="nav" aria-label="airports">
-      {Object.values(airports).map((airport, index) => <AirportRow key={index} {...airport} />)}
+      {Object.values(airports).map((airport, index) => <AirportRow key={airport.airportCode} {...airport} />)}
     </List>
-    {/* <div className={isLoading ? classes.centered : classes.centeredHide}>
-      <CircularProgress disableShrink />
-    </div> */}
   </Paper>
 }
 
