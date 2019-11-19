@@ -60,7 +60,7 @@ var fetchThreshold = 3;
 
 /// set up a nominal amount to fetch
 //  e.g. 'Range', 'bytes=100-200'
-var fetchBytes = 10000;
+var fetchBytes = 5000;
 
 /// to get an airport object we look for "airportCode" offset
 /// then we count curly braces before and after to get the object
@@ -103,12 +103,15 @@ function getAirport(data, offset) {
   }
 
   /// store the airport in global airportsMap
-  /// return the airport if found
+  /// return the airport if found or null if no
+  /// airport found
   if (begin != null && end != null) {
     var airport = JSON.parse(data.substring(begin, end + 1));
     airportsMap[airport.airportCode] = airport;
     return airport;
   }
+
+  return null;
 }
 
 /// found this on stack overflow
@@ -161,7 +164,6 @@ async function fetchAirports(appendAirports, setIsLoading) {
 
   appendAirports(fetchedAirports);
 }
-
 
 /// simple function to fetch a data range
 /// return a promise that return data
@@ -231,7 +233,7 @@ function AirportRow({ airportCode, airportName, }) {
   const link = React.forwardRef((props, ref) => <Link to={`airport/${airportCode}`} innerRef={ref} {...props} />);
 
   return <ListItem component={link} className={classes.listItem} button>
-    <ListItemText primary={`${airportCode} ${airportName}`} />
+    <ListItemText primary={`${airportCode} - ${airportName}`} />
   </ListItem>;
 }
 
@@ -274,7 +276,6 @@ function DetailScreen({ match: { params: { airportCode } } }) {
   //     "regionName": "South Pacific"
   //   }
   // }
-
 
   return airport == null
     ? <Redirect to="/" />
@@ -336,6 +337,6 @@ function DetailScreen({ match: { params: { airportCode } } }) {
     </Paper>
 }
 
-export { DetailScreen };
+export { DetailScreen, getAirport, getIndicesOf };
 
 export default AirportsScreen;
