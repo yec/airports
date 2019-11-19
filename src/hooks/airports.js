@@ -8,6 +8,56 @@ import { useState, useEffect } from 'react';
 
 const print = console.log;
 
+async function calibrateFetch() {
+
+  var offset = 0;
+  var length = 50;
+  var airport = null;
+  var begin = 0;
+  var end = 0;
+  var string = '';
+  var nominalOffset = 5; /// this is probably in an airport object
+  var tries = 0;
+  var text;
+  var contentLength;
+
+  while (airport === null && tries < 50) {
+    tries++;
+    var [text, contentLength] = await fetchAirportJson(offset, offset + length - 1);
+    offset += length;
+    string += text;
+    [airport, begin, end] = getAirport(string, nominalOffset);
+  }
+
+  var objectLength = end - begin;
+
+  return [contentLength, objectLength, airport];
+}
+
+async function fetchAirportJson(begin, end) {
+  try {
+    var response = await fetch('/airport.json', {
+      'headers': {
+        'Range': `bytes=${begin}-${end}`
+      }
+    });
+    var contentLength;
+    // var text = await response.text();
+    response.headers.forEach(header => {
+      var _contentLength = getContentLength(header);
+      if (_contentLength != null) {
+        contentLength = _contentLength;
+      }
+    });
+
+    var text = await response.text();
+
+    return [text, contentLength];
+  } catch (e) {
+    print(e);
+  }
+}
+
 function useAirports(ref) {
 
   const rowHeight = 100;
@@ -17,87 +67,53 @@ function useAirports(ref) {
   const [numberOfAirports, setNumberOfAirports] = useState(0);
   const [position, setPosition] = useState(0);
   const [dataBuffer, setDataBuffer] = useState(new ArrayBuffer(0));
+  const [airports, setAirports] = useState({});
 
-
-
-  var airports = {};
+  // var airports = {};
   // var numberOfAirports = 0;
   var pages = 0;
   var bytesPerAirport = 0;
 
+  // var bytesPerAirport = fetchBytes / indices.length;
 
-  // var cursor = 0;
-
-  if (dataBuffer.byteLength > 0) {
-
-    try {
-      var uniqueKey = 'airportCode';
-      var view = new Uint8Array(dataBuffer, cursor, fetchBytes);
-      var text = String.fromCharCode.apply(null, view);
-
-
-
-
-      var indices = getIndicesOf(uniqueKey, text);
-      // print(text);
-      // airports = indices.map(i => getAirport(text, i)).filter(value => value != null);
-      bytesPerAirport = fetchBytes / indices.length;
-      // debugger;
-      // numberOfAirports = Math.round(dataBuffer.byteLength / bytesPerAirport);
-      pages = dataBuffer.byteLength / fetchBytes;
-
-      var newNumberAirports = Math.round(dataBuffer.byteLength / bytesPerAirport);
-      if (newNumberAirports > numberOfAirports) {
-        setNumberOfAirports(Math.round(dataBuffer.byteLength / bytesPerAirport));
-      }
-
-      for(var i =0; i < indices.length; i++) {
-        var airport = getAirport(text, i);
-        print(airport);
-        if (airport !== null) {
-          airports[airport.airportCode] = airport;
-        }
-      }
-      // debugger;
-      // print(airports);
-      // console.log('bytes per airport ' + bytesPerAirport);
-      // console.log(numberOfAirports);
-      // console.log(pages);
-    } catch (e) {
-      console.log(e);
-      print(dataBuffer);
-      print(cursor);
-      print(fetchBytes);
-    }
-  }
+  const [contentLength, setContentLenth] = useState(0);
+  const [objectLength, setObjectLength] = useState(0);
 
   useEffect(() => {
 
     /// init this
-    var onScroll = handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, numberOfAirports, bytesPerAirport);
+    var onScroll;
 
-    /// run once manually, scroll events will trigger it later
-    onScroll();
-    window.addEventListener('scroll', onScroll);
+    (async () => {
 
+      var [contentLength, objectLength, airport] = await calibrateFetch();
+
+      setContentLenth(contentLength);
+      setObjectLength(objectLength);
+
+      onScroll = handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, setAirports, bytesPerAirport, contentLength, objectLength);
+
+      /// run once manually, scroll events will trigger it later
+      onScroll();
+      window.addEventListener('scroll', onScroll);
+
+    })();
     return () => {
       // do cleanup here if needed
       window.removeEventListener('scroll', onScroll);
     }
   },
     // update when airports is updated
-    [cursor, dataBuffer.byteLength]);
+    []);
 
-  return [airports, isLoading, numberOfAirports, pages];
+
+  return [airports, isLoading, numberOfAirports, pages, contentLength, objectLength];
 }
 
 const listItemHeight = 100;
 
-const fetchThreshold = 3;
-
 /// set up a nominal amount to fetch
 //  e.g. 'Range', 'bytes=100-200'
-const fetchBytes = 3000;
 
 /// to get an airport object we look for "airportCode" offset
 /// then we count curly braces before and after to get the object
@@ -146,18 +162,13 @@ function getAirport(data, offset) {
 
     try {
       var airport = JSON.parse(data.substring(begin, end + 1));
-      // print(airport);
-
-    } catch(e) {
-      // debugger;
-      // print(str2ab(data.substring(begin, end + 1)));
-      return null;
-      // alert(data.substring(begin, end + 1));
+      return [airport, begin, end];
+    } catch (e) {
+      console.log('couldnt parse airport');
     }
-    return airport;
   }
 
-  return null;
+  return [null, begin, end];
 }
 
 /// found this on stack overflow
@@ -179,61 +190,57 @@ function getIndicesOf(searchStr, str, caseSensitive = false) {
   return indices;
 }
 
-/// current position of byte offset range fetch
-// var cursor = 0;
+var dataBuffer = new ArrayBuffer(0);
 
-/// appendAirports is the setdata function
-function handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, numberOfAirports, bytesPerAirport) {
-  return async () => {
-    var bounding = ref.current.getBoundingClientRect()
-    var seen = window.innerHeight - bounding.top;
+async function fetchAirportRange(offset, items, objectLength) {
 
-    // print(JSON.stringify(bounding, null, 2));
+  var begin = offset * objectLength;
+  var end = begin + items * objectLength;
+  var string = '';
+  var [text] = await fetchAirportJson(begin, end);
 
-    var offset = Math.floor(-bounding.top / 100);
+  var indices = getIndicesOf('airportCode', text);
 
-    var byteCursor = 0;
+  var airports = {};
 
-    // initally we don't have the dataBuffer
-    // length so just hardcode byteCursor to 1000
-    // to kick things off
-    if (offset > 0) {
-      byteCursor = Math.floor((offset / numberOfAirports) * dataBuffer.byteLength );
+  for (var i = 0; i < indices.length; i++) {
+
+    var [airport, begin, end] = getAirport(text, indices[i]);
+    if (airport != null) {
+      airport.delta = offset + i;
+      airports[airport.delta] = airport;
+    } else {
+      print(text.substr(indices[i]))
     }
-
-    // var newCursor = byteCursor > cursor ? byteCursor : cursor;
-
-
-    print('cursor ' + cursor);
-    print('byteCursor ' + byteCursor);
-    print('offset ' + offset);
-    print('numberOfAirports ' + numberOfAirports);
-
-
-    // if (airports.length < 10) {
-    //   await fetchAirports(setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor);
-    // }
-    // if (seen > (bounding.height - listItemHeight * fetchThreshold)) {
-      if (byteCursor > (cursor + fetchBytes) || byteCursor == 0) {
-
-        await fetchAirports(setIsLoading, dataBuffer, setDataBuffer, byteCursor);
-        setCursor(byteCursor);
-      }
-    // }
   }
+
+  return airports;
 }
 
-async function fetchAirports(setIsLoading, dataBuffer, setDataBuffer, cursor) {
-  setIsLoading(true);
-  await fetchData(cursor, cursor + fetchBytes - 1, dataBuffer, setDataBuffer);
-  setIsLoading(false);
-  // debugger;
+/// debounce scroll
 
-  /// update cursor
-  // cursor += fetchBytes;
+var timer;
 
+function handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, setAirports, bytesPerAirport, contentLength, objectLength) {
+  return async () => {
 
-  // appendAirports(fetchedAirports);
+    async function delayFn() {
+
+      var bounding = ref.current.getBoundingClientRect()
+      var offset = Math.floor(-bounding.top / 100);
+      var items = Math.floor(window.innerHeight / 100) + offset;
+      setIsLoading(true);
+      var airports = await fetchAirportRange(Math.max(offset, 0), items, objectLength);
+      setAirports(airports);
+      setIsLoading(false);
+    }
+
+    if (timer) {
+      clearTimeout(timer);
+    }
+
+    timer = setTimeout(delayFn, 100);
+  }
 }
 
 function getContentLength(header) {
@@ -247,90 +254,5 @@ function getContentLength(header) {
   }
   return null;
 }
-
-/// simple function to fetch a data range
-/// return a promise that return data
-async function fetchData(begin, end, dataBuffer, setDataBuffer, ) {
-  try {
-    var response = await fetch('/airport.json', {
-      'headers': {
-        'Range': `bytes=${begin}-${end}`
-      }
-    });
-    var contentLength;
-
-    // var text = await response.text();
-    response.headers.forEach(header => {
-      var _contentLength = getContentLength(header);
-      if (_contentLength != null) {
-        contentLength = _contentLength;
-      }
-    });
-
-    var buffer = await response.arrayBuffer();
-    // debugger;
-
-    var newDataBuffer = dataBuffer.byteLength == 0 ? new ArrayBuffer(contentLength) : dataBuffer;
-
-    var sourceView = new Uint8Array(buffer);
-
-    var targetView = new Uint8Array(newDataBuffer, begin, sourceView.length);
-    for (var i = 0; i < sourceView.length; i++) {
-      targetView[i] = sourceView[i];
-    }
-    // debugger;
-    setDataBuffer(newDataBuffer);
-
-    // if(begin > 0) {
-      print(`begin ${begin} end ${end}`)
-      print(sourceView);
-      print(targetView);
-      // debugger;
-    // }
-
-    // print(targetView);
-
-    // debugger;
-
-
-    // debugger;
-    // // buffer.copy(dataBuffer, begin);
-    // // debugger;
-    // // var dataBuffer = new ArrayBuffer(contentLength);
-    // var view1 = new DataView(dataBuffer);
-    // view1.setUint8(begin, end);
-    // // console.log(ab2str(dataBuffer));
-
-    // debugger;
-    // debugger;
-    // var text = await response.text();
-    return String.fromCharCode.apply(null, sourceView);
-
-  } catch (e) {
-    console.log(e);
-
-    // debugger;
-  }
-  return ''
-}
-
-function ab2str(buf) {
-  return String.fromCharCode.apply(null, new Uint8Array(buf));
-}
-
-function str2ab(str) {
-  var buf = new ArrayBuffer(str.length); // 2 bytes for each char
-  var bufView = new Uint8Array(buf);
-  for (var i = 0, strLen = str.length; i < strLen; i++) {
-    bufView[i] = str.charCodeAt(i);
-  }
-  return buf;
-}
-
-/// store the airports here keyed by
-/// airport code. would use redux in a real application
-// var airportsMap = {};
-
-// var tries = 0;
 
 export { getAirport, getIndicesOf, getContentLength, useAirports };

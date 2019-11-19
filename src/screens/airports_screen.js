@@ -61,19 +61,19 @@ function AirportsScreen() {
 
   const listViewRef = useRef(null);
 
-  var [airports, isLoading, numberOfAirports, pages] = useAirports(listViewRef);
+  var [airports, isLoading, numberOfAirports, pages, contentLength, objectLength] = useAirports(listViewRef);
 
 
   if (listViewRef.current != null) {
-    listViewRef.current.style = `height: ${numberOfAirports * 100}px`;
+    listViewRef.current.style = `height: ${Math.round(contentLength/objectLength) * 100}px`;
   }
 
   return <Paper className={classes.root}>
     <Typography className={classes.title} variant="h5" component="h3">
-      Airports
+      Airports approx {Math.round(contentLength/objectLength)}
   </Typography>
     <List ref={listViewRef} component="nav" aria-label="airports">
-      {Array.from(airports).map((airport, index) => <AirportRow key={index} {...airport} />)}
+      {Object.values(airports).map((airport, index) => <AirportRow key={airport.delta} {...airport} />)}
     </List>
     {/* <div className={isLoading ? classes.centered : classes.centeredHide}>
       <CircularProgress disableShrink />
@@ -81,7 +81,7 @@ function AirportsScreen() {
   </Paper>
 }
 
-function AirportRow({ airportCode, airportName, }) {
+function AirportRow({ airportCode, airportName, delta }) {
   const classes = useStyles();
   const link = React.forwardRef((props, ref) => <Link to={`airport/${airportCode}`} innerRef={ref} {...props} />);
 
@@ -90,7 +90,7 @@ function AirportRow({ airportCode, airportName, }) {
   // print('hello');
   /// initially load airport rows with no data
   /// then when the airport dareta is ready we can show the airport
-  return <ListItem component={link} className={classes.listItem} button>
+  return <ListItem style={{position: 'absolute', top: delta * 100 }} component={link} className={classes.listItem} button>
     <ListItemText className={classes.noData} primary={text} />
   </ListItem>;
 }
