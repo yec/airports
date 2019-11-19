@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useSelector } from 'react-redux';
 import { useAirports } from '../hooks/airports';
 
 import { Link, Redirect } from 'react-router-dom';
@@ -65,7 +66,10 @@ function AirportsScreen() {
 
 
   if (listViewRef.current != null) {
-    listViewRef.current.style = `height: ${Math.round(contentLength/objectLength) * 100}px`;
+    var height = (contentLength != 0 && objectLength != 0)
+      ? Math.round(contentLength/objectLength) * 100
+      : 1000;
+    listViewRef.current.style = `height: ${height}px`;
   }
 
   return <Paper className={classes.root}>
@@ -73,7 +77,7 @@ function AirportsScreen() {
       Airports approx {Math.round(contentLength/objectLength)}
   </Typography>
     <List ref={listViewRef} component="nav" aria-label="airports">
-      {Object.values(airports).map((airport, index) => <AirportRow key={airport.delta} {...airport} />)}
+      {Object.values(airports).map((airport, index) => <AirportRow key={index} {...airport} />)}
     </List>
     {/* <div className={isLoading ? classes.centered : classes.centeredHide}>
       <CircularProgress disableShrink />
@@ -84,56 +88,61 @@ function AirportsScreen() {
 function AirportRow({ airportCode, airportName, delta }) {
   const classes = useStyles();
   const link = React.forwardRef((props, ref) => <Link to={`airport/${airportCode}`} innerRef={ref} {...props} />);
+  const listItemRef = useRef(null);
 
   const text = airportCode === null ? '' : `${airportCode} - ${airportName}` ;
 
   // print('hello');
   /// initially load airport rows with no data
   /// then when the airport dareta is ready we can show the airport
-  return <ListItem style={{position: 'absolute', top: delta * 100 }} component={link} className={classes.listItem} button>
+  return <ListItem ref={listItemRef} style={{position: 'absolute', top: delta * 100 }} component={link} className={classes.listItem} button>
     <ListItemText className={classes.noData} primary={text} />
   </ListItem>;
 }
 
 function DetailScreen({ match: { params: { airportCode } } }) {
+  const { airports } = useSelector(state => ({
+    airports: state.airports.all,
+  }));
+
   const classes = useStyles();
   const back = React.forwardRef((props, ref) => <Link to="/" innerRef={ref} {...props} />);
-  // const airport = airportsMap[airportCode];
+  const airport = airports[airportCode];
 
   /// airport object for reference
   ///
-  var airport =
-  {
-    "airportCode": "AAA",
-    "internationalAirport": false,
-    "domesticAirport": false,
-    "regionalAirport": false,
-    "onlineIndicator": false,
-    "eticketableAirport": false,
-    "location": {
-      "aboveSeaLevel": -99999,
-      "latitude": 17.25,
-      "latitudeRadius": -0.304,
-      "longitude": 145.3,
-      "longitudeRadius": -2.5395,
-      "latitudeDirection": "S",
-      "longitudeDirection": "W"
-    },
-    "airportName": "Anaa",
-    "city": {
-      "cityCode": "AAA",
-      "cityName": "Anaa",
-      "timeZoneName": "Pacific/Tahiti"
-    },
-    "country": {
-      "countryCode": "PF",
-      "countryName": "French Polynesia"
-    },
-    "region": {
-      "regionCode": "SP",
-      "regionName": "South Pacific"
-    }
-  }
+  // var airport =
+  // {
+  //   "airportCode": "AAA",
+  //   "internationalAirport": false,
+  //   "domesticAirport": false,
+  //   "regionalAirport": false,
+  //   "onlineIndicator": false,
+  //   "eticketableAirport": false,
+  //   "location": {
+  //     "aboveSeaLevel": -99999,
+  //     "latitude": 17.25,
+  //     "latitudeRadius": -0.304,
+  //     "longitude": 145.3,
+  //     "longitudeRadius": -2.5395,
+  //     "latitudeDirection": "S",
+  //     "longitudeDirection": "W"
+  //   },
+  //   "airportName": "Anaa",
+  //   "city": {
+  //     "cityCode": "AAA",
+  //     "cityName": "Anaa",
+  //     "timeZoneName": "Pacific/Tahiti"
+  //   },
+  //   "country": {
+  //     "countryCode": "PF",
+  //     "countryName": "French Polynesia"
+  //   },
+  //   "region": {
+  //     "regionCode": "SP",
+  //     "regionName": "South Pacific"
+  //   }
+  // }
 
   return airport === null
     ? <Redirect to="/" />

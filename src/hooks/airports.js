@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from "react-redux";
+import { setAirports } from '../actions/airportsActions';
+
+import debounce from 'debounce';
 
 /// set up the list view to full height
 /// use scroll offset to interpolate cursor
@@ -67,7 +71,11 @@ function useAirports(ref) {
   const [numberOfAirports, setNumberOfAirports] = useState(0);
   const [position, setPosition] = useState(0);
   const [dataBuffer, setDataBuffer] = useState(new ArrayBuffer(0));
-  const [airports, setAirports] = useState({});
+  const dispatch = useDispatch();
+
+  const { airports } = useSelector(state => ({
+    airports: state.airports.visible,
+  }));
 
   // var airports = {};
   // var numberOfAirports = 0;
@@ -91,7 +99,8 @@ function useAirports(ref) {
       setContentLenth(contentLength);
       setObjectLength(objectLength);
 
-      onScroll = handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, setAirports, bytesPerAirport, contentLength, objectLength);
+      var bounced = handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, dispatch, bytesPerAirport, contentLength, objectLength);
+      onScroll = debounce(bounced, 50);
 
       /// run once manually, scroll events will trigger it later
       onScroll();
@@ -208,7 +217,7 @@ async function fetchAirportRange(offset, items, objectLength) {
     var [airport, begin, end] = getAirport(text, indices[i]);
     if (airport != null) {
       airport.delta = offset + i;
-      airports[airport.delta] = airport;
+      airports[airport.airportCode] = airport;
     } else {
       print(text.substr(indices[i]))
     }
@@ -217,29 +226,16 @@ async function fetchAirportRange(offset, items, objectLength) {
   return airports;
 }
 
-/// debounce scroll
 
-var timer;
-
-function handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, setAirports, bytesPerAirport, contentLength, objectLength) {
+function handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor, dispatch, bytesPerAirport, contentLength, objectLength) {
   return async () => {
-
-    async function delayFn() {
-
-      var bounding = ref.current.getBoundingClientRect()
-      var offset = Math.floor(-bounding.top / 100);
-      var items = Math.floor(window.innerHeight / 100) + offset;
-      setIsLoading(true);
-      var airports = await fetchAirportRange(Math.max(offset, 0), items, objectLength);
-      setAirports(airports);
-      setIsLoading(false);
-    }
-
-    if (timer) {
-      clearTimeout(timer);
-    }
-
-    timer = setTimeout(delayFn, 100);
+    var bounding = ref.current.getBoundingClientRect()
+    var offset = Math.floor(-bounding.top / 100);
+    var items = Math.ceil(window.innerHeight / 100);
+    setIsLoading(true);
+    var airports = await fetchAirportRange(Math.max(offset, 0), items, objectLength);
+    dispatch(setAirports(airports));
+    setIsLoading(false);
   }
 }
 
