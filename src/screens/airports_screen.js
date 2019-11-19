@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useAirports } from '../hooks/airports';
 
 import { Link, Redirect } from 'react-router-dom';
 import { makeStyles } from '@material-ui/core/styles';
@@ -9,6 +10,8 @@ import Divider from '@material-ui/core/Divider';
 import CircularProgress from '@material-ui/core/CircularProgress';
 
 import { Paper, Typography, Button } from '@material-ui/core';
+
+const print = console.log;
 
 const useStyles = makeStyles(theme => ({
   listItem: {
@@ -49,182 +52,32 @@ const useStyles = makeStyles(theme => ({
   }
 }));
 
-/// create a function that download byte range
-/// get the airport object and add to airports map
+const listItemHeight = 100;
 
-/// we have to know the listview height in advance so we can
-/// calculate heights.
-var listItemHeight = 100;
-
-var fetchThreshold = 3;
-
-/// set up a nominal amount to fetch
-//  e.g. 'Range', 'bytes=100-200'
-var fetchBytes = 5000;
-
-/// to get an airport object we look for "airportCode" offset
-/// then we count curly braces before and after to get the object
-/// if we can't find the opening or closing brace we return null
-var uniqueKey = 'airportCode';
-
-/// get the json object that contains the offset
-/// return null if no object found
-/// should write a test for this
-function getAirport(data, offset) {
-
-  var begin, end;
-
-  /// count brackets going forward to find the closing bracket
-  /// when forwardCount goes negative we have found the closing
-  /// bracket
-  var forwardCount = 0;
-
-  /// count brackets going backwards to find the opening bracket
-  /// when backwardCount goes positive we have found the opening
-  /// bracket
-  var backwardCount = 0;
-
-  for (var i = offset; i < data.length; i++) {
-    if (data[i] == '{') forwardCount++;
-    if (data[i] == '}') forwardCount--;
-    if (forwardCount < 0) {
-      end = i;
-      break;
-    }
-  }
-
-  for (var i = offset; i >= 0; i--) {
-    if (data[i] == '{') backwardCount++;
-    if (data[i] == '}') backwardCount--;
-    if (backwardCount > 0) {
-      begin = i;
-      break;
-    }
-  }
-
-  /// store the airport in global airportsMap
-  /// return the airport if found or null if no
-  /// airport found
-  if (begin != null && end != null) {
-    var airport = JSON.parse(data.substring(begin, end + 1));
-    airportsMap[airport.airportCode] = airport;
-    return airport;
-  }
-
-  return null;
-}
-
-/// found this on stack overflow
-/// should write a test for this
-function getIndicesOf(searchStr, str, caseSensitive = false) {
-  var searchStrLen = searchStr.length;
-  if (searchStrLen == 0) {
-    return [];
-  }
-  var startIndex = 0, index, indices = [];
-  if (!caseSensitive) {
-    str = str.toLowerCase();
-    searchStr = searchStr.toLowerCase();
-  }
-  while ((index = str.indexOf(searchStr, startIndex)) > -1) {
-    indices.push(index);
-    startIndex = index + searchStrLen;
-  }
-  return indices;
-}
-
-/// current position of byte offset range fetch
-var cursor = 0;
-
-/// appendAirports is the setdata function
-function handleScroll(ref, airports, appendAirports, setIsLoading) {
-  return () => {
-    var bounding = ref.current.getBoundingClientRect()
-    var seen = window.innerHeight - bounding.top;
-
-    if (airports.length < 10) {
-      fetchAirports(appendAirports, setIsLoading);
-    }
-    if (seen > (bounding.height - listItemHeight * fetchThreshold)) {
-      fetchAirports(appendAirports, setIsLoading);
-    }
-  }
-}
-
-async function fetchAirports(appendAirports, setIsLoading) {
-  setIsLoading(true);
-  var data = await fetchData(cursor, cursor + fetchBytes);
-  setIsLoading(false);
-
-  /// update cursor
-  cursor += fetchBytes;
-
-  var indices = getIndicesOf(uniqueKey, data);
-  var fetchedAirports = indices.map(i => getAirport(data, i)).filter(value => value != null);
-
-  appendAirports(fetchedAirports);
-}
-
-/// simple function to fetch a data range
-/// return a promise that return data
-function fetchData(begin, end) {
-  return fetch('/airport.json', {
-    'headers': {
-      'Range': `bytes=${begin}-${end}`
-    }
-  })
-    .then(response => response.text());
-}
-
-/// store the airports here keyed by
-/// airport code. would use redux in a real application
-var airportsMap = {};
 
 function AirportsScreen() {
 
   const classes = useStyles();
-  const [airports, setAirports] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const listViewRef = useRef(null);
 
-  function appendAirports(list) {
-    setAirports([...airports, ...list]);
+  var [airports, isLoading, numberOfAirports, pages] = useAirports(listViewRef);
+
+
+  if (listViewRef.current != null) {
+    listViewRef.current.style = `height: ${numberOfAirports * 100}px`;
   }
 
-  useEffect(() => {
-    /// init this
-    var onScroll;
-
-    // need to wrap async
-    (
-      async () => {
-        onScroll = handleScroll(listViewRef, airports, appendAirports, setIsLoading);
-
-        /// run this once
-        onScroll();
-        window.addEventListener('scroll', onScroll);
-      }
-    )();
-
-    return () => {
-      // do cleanup here if needed
-      window.removeEventListener('scroll', onScroll);
-    }
-  },
-    // update when airports is updated
-    [airports]);
-
-  return <Paper ref={listViewRef} className={classes.root}>
+  return <Paper className={classes.root}>
     <Typography className={classes.title} variant="h5" component="h3">
       Airports
   </Typography>
-    <List component="nav" aria-label="main mailbox folders">
-      {airports.map(airport => <AirportRow {...airport} />)}
+    <List ref={listViewRef} component="nav" aria-label="airports">
+      {Array.from(airports).map((airport, index) => <AirportRow key={index} {...airport} />)}
     </List>
-    <div className={isLoading ? classes.centered : classes.centeredHide}>
+    {/* <div className={isLoading ? classes.centered : classes.centeredHide}>
       <CircularProgress disableShrink />
-    </div>
+    </div> */}
   </Paper>
 }
 
@@ -232,52 +85,57 @@ function AirportRow({ airportCode, airportName, }) {
   const classes = useStyles();
   const link = React.forwardRef((props, ref) => <Link to={`airport/${airportCode}`} innerRef={ref} {...props} />);
 
+  const text = airportCode === null ? '' : `${airportCode} - ${airportName}` ;
+
+  // print('hello');
+  /// initially load airport rows with no data
+  /// then when the airport dareta is ready we can show the airport
   return <ListItem component={link} className={classes.listItem} button>
-    <ListItemText primary={`${airportCode} - ${airportName}`} />
+    <ListItemText className={classes.noData} primary={text} />
   </ListItem>;
 }
 
 function DetailScreen({ match: { params: { airportCode } } }) {
   const classes = useStyles();
   const back = React.forwardRef((props, ref) => <Link to="/" innerRef={ref} {...props} />);
-  const airport = airportsMap[airportCode];
+  // const airport = airportsMap[airportCode];
 
   /// airport object for reference
   ///
-  // var airport =
-  // {
-  //   "airportCode": "AAA",
-  //   "internationalAirport": false,
-  //   "domesticAirport": false,
-  //   "regionalAirport": false,
-  //   "onlineIndicator": false,
-  //   "eticketableAirport": false,
-  //   "location": {
-  //     "aboveSeaLevel": -99999,
-  //     "latitude": 17.25,
-  //     "latitudeRadius": -0.304,
-  //     "longitude": 145.3,
-  //     "longitudeRadius": -2.5395,
-  //     "latitudeDirection": "S",
-  //     "longitudeDirection": "W"
-  //   },
-  //   "airportName": "Anaa",
-  //   "city": {
-  //     "cityCode": "AAA",
-  //     "cityName": "Anaa",
-  //     "timeZoneName": "Pacific/Tahiti"
-  //   },
-  //   "country": {
-  //     "countryCode": "PF",
-  //     "countryName": "French Polynesia"
-  //   },
-  //   "region": {
-  //     "regionCode": "SP",
-  //     "regionName": "South Pacific"
-  //   }
-  // }
+  var airport =
+  {
+    "airportCode": "AAA",
+    "internationalAirport": false,
+    "domesticAirport": false,
+    "regionalAirport": false,
+    "onlineIndicator": false,
+    "eticketableAirport": false,
+    "location": {
+      "aboveSeaLevel": -99999,
+      "latitude": 17.25,
+      "latitudeRadius": -0.304,
+      "longitude": 145.3,
+      "longitudeRadius": -2.5395,
+      "latitudeDirection": "S",
+      "longitudeDirection": "W"
+    },
+    "airportName": "Anaa",
+    "city": {
+      "cityCode": "AAA",
+      "cityName": "Anaa",
+      "timeZoneName": "Pacific/Tahiti"
+    },
+    "country": {
+      "countryCode": "PF",
+      "countryName": "French Polynesia"
+    },
+    "region": {
+      "regionCode": "SP",
+      "regionName": "South Pacific"
+    }
+  }
 
-  return airport == null
+  return airport === null
     ? <Redirect to="/" />
     : <Paper className={classes.root}>
       <Typography className={classes.title} variant="h5" component="h3">
@@ -337,6 +195,6 @@ function DetailScreen({ match: { params: { airportCode } } }) {
     </Paper>
 }
 
-export { DetailScreen, getAirport, getIndicesOf };
+export { DetailScreen };
 
 export default AirportsScreen;

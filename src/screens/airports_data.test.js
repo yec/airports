@@ -1,4 +1,4 @@
-import {getIndicesOf, getAirport} from './airports_screen';
+import {getIndicesOf, getAirport, getContentLength} from '../hooks/airports.js';
 
 describe('Test data functions', () => {
   it('getIndicesOf returns all matching of searchString in text.', () => {
@@ -26,6 +26,19 @@ describe('Test data functions', () => {
     var airport = getAirport(text, 4758);
     expect(airport).toBeNull();
   });
+
+
+  it('getContentLength returns content length from header.', () => {
+    var contentLength = getContentLength('bytes 0-5000/3809746');
+    expect(contentLength).toEqual(3809746);
+  });
+
+
+  it('getContentLength returns content length from header.', () => {
+    var contentLength = getContentLength('bytes 0-50003809746');
+    expect(contentLength).toBeNull();
+  });
+
 });
 
 

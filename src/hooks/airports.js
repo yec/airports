@@ -14,13 +14,14 @@ function useAirports(ref) {
 
   const [isLoading, setIsLoading] = useState(true);
   const [cursor, setCursor] = useState(0);
+  const [numberOfAirports, setNumberOfAirports] = useState(0);
   const [position, setPosition] = useState(0);
   const [dataBuffer, setDataBuffer] = useState(new ArrayBuffer(0));
 
 
 
-  var airports = [];
-  var numberOfAirports = 0;
+  var airports = {};
+  // var numberOfAirports = 0;
   var pages = 0;
   var bytesPerAirport = 0;
 
@@ -34,12 +35,31 @@ function useAirports(ref) {
       var view = new Uint8Array(dataBuffer, cursor, fetchBytes);
       var text = String.fromCharCode.apply(null, view);
 
+
+
+
       var indices = getIndicesOf(uniqueKey, text);
-      airports = indices.map(i => getAirport(text, i)).filter(value => value != null);
-      bytesPerAirport = fetchBytes / airports.length;
+      // print(text);
+      // airports = indices.map(i => getAirport(text, i)).filter(value => value != null);
+      bytesPerAirport = fetchBytes / indices.length;
       // debugger;
-      numberOfAirports = dataBuffer.byteLength / bytesPerAirport;
+      // numberOfAirports = Math.round(dataBuffer.byteLength / bytesPerAirport);
       pages = dataBuffer.byteLength / fetchBytes;
+
+      var newNumberAirports = Math.round(dataBuffer.byteLength / bytesPerAirport);
+      if (newNumberAirports > numberOfAirports) {
+        setNumberOfAirports(Math.round(dataBuffer.byteLength / bytesPerAirport));
+      }
+
+      for(var i =0; i < indices.length; i++) {
+        var airport = getAirport(text, i);
+        print(airport);
+        if (airport !== null) {
+          airports[airport.airportCode] = airport;
+        }
+      }
+      // debugger;
+      // print(airports);
       // console.log('bytes per airport ' + bytesPerAirport);
       // console.log(numberOfAirports);
       // console.log(pages);
@@ -66,7 +86,7 @@ function useAirports(ref) {
     }
   },
     // update when airports is updated
-    [cursor, dataBuffer]);
+    [cursor, dataBuffer.byteLength]);
 
   return [airports, isLoading, numberOfAirports, pages];
 }
@@ -77,7 +97,7 @@ const fetchThreshold = 3;
 
 /// set up a nominal amount to fetch
 //  e.g. 'Range', 'bytes=100-200'
-const fetchBytes = 5000;
+const fetchBytes = 3000;
 
 /// to get an airport object we look for "airportCode" offset
 /// then we count curly braces before and after to get the object
@@ -126,9 +146,13 @@ function getAirport(data, offset) {
 
     try {
       var airport = JSON.parse(data.substring(begin, end + 1));
+      // print(airport);
 
     } catch(e) {
-      alert(data.substring(begin, end + 1));
+      // debugger;
+      // print(str2ab(data.substring(begin, end + 1)));
+      return null;
+      // alert(data.substring(begin, end + 1));
     }
     return airport;
   }
@@ -174,21 +198,27 @@ function handleScroll(ref, airports, setIsLoading, dataBuffer, setDataBuffer, cu
     // length so just hardcode byteCursor to 1000
     // to kick things off
     if (offset > 0) {
-      byteCursor = Math.floor(numberOfAirports / offset);
+      byteCursor = Math.floor((offset / numberOfAirports) * dataBuffer.byteLength );
     }
 
+    // var newCursor = byteCursor > cursor ? byteCursor : cursor;
 
-    // print('byteCursor ' + byteCursor);
-    // print('offset ' + offset);
-    // print('numberOfAirports ' + numberOfAirports);
+
+    print('cursor ' + cursor);
+    print('byteCursor ' + byteCursor);
+    print('offset ' + offset);
+    print('numberOfAirports ' + numberOfAirports);
 
 
     // if (airports.length < 10) {
     //   await fetchAirports(setIsLoading, dataBuffer, setDataBuffer, cursor, setCursor);
     // }
     // if (seen > (bounding.height - listItemHeight * fetchThreshold)) {
-    await fetchAirports(setIsLoading, dataBuffer, setDataBuffer, byteCursor);
-    setCursor(byteCursor);
+      if (byteCursor > (cursor + fetchBytes) || byteCursor == 0) {
+
+        await fetchAirports(setIsLoading, dataBuffer, setDataBuffer, byteCursor);
+        setCursor(byteCursor);
+      }
     // }
   }
 }
@@ -218,27 +248,6 @@ function getContentLength(header) {
   return null;
 }
 
-/// keep a global buffer so when we fetch range
-/// of the file we can put it in the correct place
-/// assume ASCII text
-// window.dataBuffer = null;
-
-// class Controller {
-//   static sharedInstance = Controller.sharedInstance == null ? new Controller() : this.sharedInstance
-
-//   constructor() {
-
-//     /// initialise the databuffer
-//     this.dataBuffer = null;
-
-//   }
-
-//   printHelloWorld() {
-//       console.log("\n\tHello World... \(^_^)/ !!")
-//   }
-// }
-// debugger
-
 /// simple function to fetch a data range
 /// return a promise that return data
 async function fetchData(begin, end, dataBuffer, setDataBuffer, ) {
@@ -266,11 +275,18 @@ async function fetchData(begin, end, dataBuffer, setDataBuffer, ) {
     var sourceView = new Uint8Array(buffer);
 
     var targetView = new Uint8Array(newDataBuffer, begin, sourceView.length);
-    for (var i = begin; i < sourceView.length; i++) {
+    for (var i = 0; i < sourceView.length; i++) {
       targetView[i] = sourceView[i];
     }
     // debugger;
     setDataBuffer(newDataBuffer);
+
+    // if(begin > 0) {
+      print(`begin ${begin} end ${end}`)
+      print(sourceView);
+      print(targetView);
+      // debugger;
+    // }
 
     // print(targetView);
 
