@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useAirports } from '../hooks/airports';
 
-import { Link, Redirect } from 'react-router-dom';
+import { Link, Redirect, useHistory } from 'react-router-dom';
+
 import { makeStyles } from '@material-ui/core/styles';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
@@ -98,12 +99,13 @@ function AirportRow({ airportCode, airportName, delta }) {
 }
 
 function DetailScreen({ match: { params: { airportCode } } }) {
+  const history = useHistory();
+
   const { airports } = useSelector(state => ({
     airports: state.airports.all,
   }));
 
   const classes = useStyles();
-  const back = React.forwardRef((props, ref) => <Link to="/" innerRef={ref} {...props} />);
   const airport = airports[airportCode];
 
   /// airport object for reference
@@ -194,7 +196,7 @@ function DetailScreen({ match: { params: { airportCode } } }) {
       </div>
       <Divider />
       <div className={classes.body} >
-        <Button variant="contained" component={back} >
+        <Button variant="contained" onClick={history.goBack} >
           Back
       </Button>
       </div>
