@@ -85,7 +85,7 @@ function AirportsScreen() {
 
 function AirportRow({ airportCode, airportName, delta }) {
   const classes = useStyles();
-  const link = React.forwardRef((props, ref) => <Link to={`airport/${airportCode}`} innerRef={ref} {...props} />);
+  const link = React.forwardRef((props, ref) => <Link to={`/airport/${airportCode}`} innerRef={ref} {...props} />);
   const listItemRef = useRef(null);
 
   const text = airportCode === null ? '' : `${airportCode} - ${airportName}` ;
@@ -143,7 +143,7 @@ function DetailScreen({ match: { params: { airportCode } } }) {
   //   }
   // }
 
-  return airport === null
+  return typeof airport === 'undefined'
     ? <Redirect to="/" />
     : <Paper className={classes.root}>
       <Typography className={classes.title} variant="h5" component="h3">
