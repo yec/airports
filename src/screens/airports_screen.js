@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { useAirports } from '../hooks/airports';
 
 import { Link, Redirect, useHistory } from 'react-router-dom';
 
-import { makeStyles } from '@material-ui/core/styles';
 import List from '@material-ui/core/List';
 import ListItem from '@material-ui/core/ListItem';
 import ListItemText from '@material-ui/core/ListItemText';
@@ -13,51 +11,13 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 
 import { Paper, Typography, Button } from '@material-ui/core';
 
-const print = console.log;
+import { useStyles } from '../utils/styles';
 
-const useStyles = makeStyles(theme => ({
-  listItem: {
-    height: listItemHeight,
-  },
-  title: {
-    padding: 40,
-  },
-  body: {
-    padding: 40,
-  },
-  root: {
-    marginTop: 20,
-    marginBottom: 20,
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    width: '100%',
-    maxWidth: 560,
-    backgroundColor: theme.palette.background.paper,
-  },
-  centered: {
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    padding: 60,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  centeredHide: {
-    transition: 'opacity 0.2s',
-    opacity: 0,
-    marginLeft: 'auto',
-    marginRight: 'auto',
-    padding: 60,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }
-}));
+const print = console.log;
 
 const listItemHeight = 100;
 
-
-function AirportsScreen() {
+function AirportsScreen({ useAirports }) {
 
   const classes = useStyles();
 
@@ -146,61 +106,61 @@ function DetailScreen({ match: { params: { airportCode } } }) {
   return typeof airport === 'undefined'
     ? <Redirect to="/" />
     : <Paper className={classes.root}>
-      <Typography className={classes.title} variant="h5" component="h3">
-        {`${airport.airportCode} - ${airport.airportName}`}
-      </Typography>
-      <Divider />
-      <div className={classes.body} >
-        <Typography component="p">
-          International airport: {`${airport.internationalAirport}`}
+        <Typography className={classes.title} variant="h5" component="h3">
+          {`${airport.airportCode} - ${airport.airportName}`}
         </Typography>
-        <Typography component="p">
-          Domestic airport: {`${airport.domesticAirport}`}
-        </Typography>
-        <Typography component="p">
-          Regional airport: {`${airport.regionalAirport}`}
-        </Typography>
-        <Typography component="p">
-          Online indicator: {`${airport.onlineIndicator}`}
-        </Typography>
-        <Typography component="p">
-          Eticketable airport: {`${airport.eticketableAirport}`}
-        </Typography>
-      </div>
-      <Divider />
-      <div className={classes.body} >
-        <Typography component="p">
-          Above sea level: {`${airport.location.aboveSeaLevel}`} feet
-    </Typography>
-        <Typography component="p">
-          Latitude: {`${airport.location.latitude} ${airport.location.latitudeRadius}`}
-        </Typography>
-        <Typography component="p">
-          Longitude: {`${airport.location.longitude} ${airport.location.longitudeRadius}`}
-        </Typography>
-        <Typography component="p">
-          Direction: {`${airport.location.latitudeDirection}${airport.location.longitudeDirection}`}
-        </Typography>
-      </div>
-      <Divider />
-      <div className={classes.body} >
-        <Typography component="p">
-          City: {`${airport.city.cityCode} ${airport.city.cityName} ${airport.city.timeZoneName}`}
-        </Typography>
-        <Typography component="p">
-          Country: {`${airport.country.countryCode} ${airport.country.countryName}`}
-        </Typography>
-        <Typography component="p">
-          Region: {`${airport.region.regionCode} ${airport.region.regionName}`}
-        </Typography>
-      </div>
-      <Divider />
-      <div className={classes.body} >
-        <Button variant="contained" onClick={history.goBack} >
-          Back
-      </Button>
-      </div>
-    </Paper>
+        <Divider />
+        <div className={classes.body} >
+          <Typography component="p">
+            International airport: {`${airport.internationalAirport}`}
+          </Typography>
+          <Typography component="p">
+            Domestic airport: {`${airport.domesticAirport}`}
+          </Typography>
+          <Typography component="p">
+            Regional airport: {`${airport.regionalAirport}`}
+          </Typography>
+          <Typography component="p">
+            Online indicator: {`${airport.onlineIndicator}`}
+          </Typography>
+          <Typography component="p">
+            Eticketable airport: {`${airport.eticketableAirport}`}
+          </Typography>
+        </div>
+        <Divider />
+        <div className={classes.body} >
+          <Typography component="p">
+            Above sea level: {`${airport.location.aboveSeaLevel}`} feet
+          </Typography>
+          <Typography component="p">
+            Latitude: {`${airport.location.latitude} ${airport.location.latitudeRadius}`}
+          </Typography>
+          <Typography component="p">
+            Longitude: {`${airport.location.longitude} ${airport.location.longitudeRadius}`}
+          </Typography>
+          <Typography component="p">
+            Direction: {`${airport.location.latitudeDirection}${airport.location.longitudeDirection}`}
+          </Typography>
+        </div>
+        <Divider />
+        <div className={classes.body} >
+          <Typography component="p">
+            City: {`${airport.city.cityCode} ${airport.city.cityName} ${airport.city.timeZoneName}`}
+          </Typography>
+          <Typography component="p">
+            Country: {`${airport.country.countryCode} ${airport.country.countryName}`}
+          </Typography>
+          <Typography component="p">
+            Region: {`${airport.region.regionCode} ${airport.region.regionName}`}
+          </Typography>
+        </div>
+        <Divider />
+        <div className={classes.body} >
+          <Button variant="contained" onClick={history.goBack} >
+            Back
+          </Button>
+        </div>
+      </Paper>
 }
 
 export { DetailScreen };
