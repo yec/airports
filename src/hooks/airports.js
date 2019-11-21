@@ -38,40 +38,91 @@ async function calibrateFetch() {
   return [contentLength, objectLength, airport];
 }
 
-var promises = {};
+/// databuffer is keyed by url
+var dataBuffer = {};
 
-const promiseKey = (url, begin, end) => `${url}-${begin}-${end}`;
+async function fetchContentLength(url) {
+  var contentLength = 0;
+  var response = await fetch(url, { method: 'HEAD' });
+  response.headers.forEach(header => {
+    if (!isNaN(parseInt(header))) {
+      contentLength = parseInt(header);
+    }
+  });
+  return contentLength;
+}
 
 async function cachedFetchRange(url, begin, end) {
-  var cacheKey = promiseKey(url, begin, end);
+  /// iterate through databuffer to find the contiguous
+  /// ranges to fetch
 
-  if(typeof promises[cacheKey] !== 'undefined') {
-    return promises[cacheKey];
+  if (typeof dataBuffer[url] === 'undefined') {
+    dataBuffer[url] = new ArrayBuffer(await fetchContentLength(url));
   }
 
-  var p = new Promise(function(resolve, reject) {
-    fetch(url, {
-      'headers': {
-        'Range': `bytes=${begin}-${end}`
-      }
-    }).then(async (response) => {
-      var text = await response.text();
-      var contentLength;
-      response.headers.forEach(header => {
-        var _contentLength = getContentLength(header);
-        if (_contentLength != null) {
-          contentLength = _contentLength;
-        }
-      });
-      resolve([text, contentLength]);
-    }).catch((e) => {
-      delete promises[cacheKey];
-      reject(e);
-    })
-  });
+  /// find byte ranges that we need to fetch
+  var view = new Uint8Array(dataBuffer[url], begin, end - begin + 1);
 
-  promises[cacheKey] = p;
-  return p;
+  /// range { begin , end }
+  var ranges = [];
+
+  var rangeIndex = 0;
+  for (var i = 0; i < view.length; i++) {
+    if (view[i] == 0) {
+      /// no data is availble here so we begin should already be set
+      /// if its not we should set it. if begin is already set we
+      /// don't need to do anything
+      if (ranges[rangeIndex] == null) {
+        ranges[rangeIndex] = { begin: i + begin };
+      } else {
+        ranges[rangeIndex].end = i + begin;
+      }
+    }
+    else {
+      /// increment rangeIndex if we already have a range
+      if (ranges[rangeIndex] != null) {
+        rangeIndex++;
+      }
+    }
+  }
+
+  /// we have all the data in the buffer so return without fetching
+  if(ranges.length == 0) {
+    return [String.fromCharCode.apply(null, view), dataBuffer[url].byteLength];
+  }
+
+  var rangeHeaderValue = 'bytes=' + ranges.map(range => `${range.begin}-${range.end}`).join(', ');
+
+  print(rangeHeaderValue);
+
+  /// "Range: bytes=0-50, 100-150"
+  try {
+
+    var buffer = await fetch(url, {
+      'headers': {
+        'Range': rangeHeaderValue
+      }
+    }).then(response => response.arrayBuffer());
+
+    var bytes = new Uint8Array(buffer);
+
+    ranges.forEach((range) => {
+      var writer = new Uint8Array(dataBuffer[url], range.begin, range.end - range.begin + 1);
+      for(var i = 0; i < writer.length; i++) {
+        writer[i] = bytes[i];
+      }
+    });
+
+    // buffer might have been written somewhere else so read buffer again
+    var view = new Uint8Array(dataBuffer[url], begin, end - begin + 1);
+    var text = String.fromCharCode.apply(null, view);
+    return [text, dataBuffer[url].byteLength];
+
+  } catch (e) {
+    console.log(e);
+  }
+
+  return [String.fromCharCode.apply(null, view), dataBuffer[url].byteLength];
 }
 
 async function fetchAirportJson(begin, end) {
