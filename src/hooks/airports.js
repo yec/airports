@@ -224,11 +224,18 @@ var dataBuffer = new ArrayBuffer(0);
 
 async function fetchAirportRange(offset, items, objectLength, airports) {
 
-  var begin = offset * objectLength;
-  var end = begin + items * objectLength;
-  var string = '';
-  var [text] = await fetchAirportJson(begin, end);
+  var promises = [];
+  /// lets segment to improve efficiency
+  for(var i=0; i < items; i++) {
+    var begin = (offset + i) * objectLength;
+    var end = begin + objectLength - 1;
 
+    /// don't await here. we want the promise object
+    promises[i] = fetchAirportJson(begin, end)
+  }
+
+  var result = await Promise.all(promises);
+  var text = result.map(([text]) => text).join(''); /// the default joiner is , so need to set to empty
   var indices = getIndicesOf('airportCode', text);
 
   var airports = {};
@@ -246,7 +253,8 @@ async function fetchAirportRange(offset, items, objectLength, airports) {
       airport.delta = offset + i;
       airports[airport.airportCode] = airport;
     } else {
-      print(text.substr(indices[i]))
+      print(`couldn't parse airport at ${indices[i]}`);
+      print(text.substr( Math.max(0,indices[i]), indices[i+1]))
     }
   }
 
