@@ -10,6 +10,7 @@ import {
 import configureStore from './store/configureStore';
 
 import AirportsScreen, { DetailScreen } from './screens/airports_screen';
+import HomeScreen from './screens/home_screen';
 
 const store = configureStore();
 
@@ -20,7 +21,7 @@ function App() {
         <Switch>
           <Route path="/airport/:airportCode" component={(props) => <DetailScreen {...props} />} />
           <Route path="/" >
-            <AirportsScreen />
+            <HomeScreen />
           </Route>
         </Switch>
       </Router>
