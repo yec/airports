@@ -38,24 +38,45 @@ async function calibrateFetch() {
   return [contentLength, objectLength, airport];
 }
 
-async function fetchAirportJson(begin, end) {
-  try {
-    var response = await fetch('/airport.json', {
+var promises = {};
+
+const promiseKey = (url, begin, end) => `${url}-${begin}-${end}`;
+
+async function cachedFetchRange(url, begin, end) {
+  var cacheKey = promiseKey(url, begin, end);
+
+  if(typeof promises[cacheKey] !== 'undefined') {
+    return promises[cacheKey];
+  }
+
+  var p = new Promise(function(resolve, reject) {
+    fetch(url, {
       'headers': {
         'Range': `bytes=${begin}-${end}`
       }
-    });
-    var contentLength;
-    // var text = await response.text();
-    response.headers.forEach(header => {
-      var _contentLength = getContentLength(header);
-      if (_contentLength != null) {
-        contentLength = _contentLength;
-      }
-    });
+    }).then(async (response) => {
+      var text = await response.text();
+      var contentLength;
+      response.headers.forEach(header => {
+        var _contentLength = getContentLength(header);
+        if (_contentLength != null) {
+          contentLength = _contentLength;
+        }
+      });
+      resolve([text, contentLength]);
+    }).catch((e) => {
+      delete promises[cacheKey];
+      reject(e);
+    })
+  });
 
-    var text = await response.text();
+  promises[cacheKey] = p;
+  return p;
+}
 
+async function fetchAirportJson(begin, end) {
+  try {
+    var [text, contentLength] = await cachedFetchRange('/airport.json', begin, end);
     return [text, contentLength];
   } catch (e) {
     print(e);
