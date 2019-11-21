@@ -27,10 +27,15 @@ async function calibrateFetch() {
 
   while (airport === null && tries < 50) {
     tries++;
-    var [text, contentLength] = await fetchAirportJson(offset, offset + length - 1);
-    offset += length;
-    string += text;
-    [airport, begin, end] = getAirport(string, nominalOffset);
+    console.log('tries: ' + tries);
+    try {
+      var [text, contentLength] = await fetchAirportJson(offset, offset + length - 1);
+      offset += length;
+      string += text;
+      [airport, begin, end] = getAirport(string, nominalOffset);
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   var objectLength = end - begin;
