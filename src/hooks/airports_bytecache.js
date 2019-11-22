@@ -92,7 +92,7 @@ async function cachedFetchRange(url, begin, end) {
   }
 
   /// we have all the data in the buffer so return without fetching
-  if(ranges.length == 0) {
+  if (ranges.length == 0) {
     return [String.fromCharCode.apply(null, view), dataBuffer[url].byteLength];
   }
 
@@ -113,7 +113,7 @@ async function cachedFetchRange(url, begin, end) {
 
     ranges.forEach((range) => {
       var writer = new Uint8Array(dataBuffer[url], range.begin, range.end - range.begin + 1);
-      for(var i = 0; i < writer.length; i++) {
+      for (var i = 0; i < writer.length; i++) {
         writer[i] = bytes[i];
       }
     });
@@ -279,31 +279,62 @@ function getIndicesOf(searchStr, str, caseSensitive = false) {
 var dataBuffer = new ArrayBuffer(0);
 
 async function fetchAirportRange(offset, items, objectLength, airports) {
+  const PARSE_ERROR = 'PARSE_ERROR';
+  var tries = 0;
+  var error;
 
-  var begin = offset * objectLength;
-  var end = begin + items * objectLength;
-  var string = '';
-  var [text] = await fetchAirportJson(begin, end);
-
-  var indices = getIndicesOf('airportCode', text);
-
+  /// return this value
   var airports = {};
 
-  for (var i = 0; i < indices.length; i++) {
+  /// these are mutable
+  var text = '';
+  var begin = offset * objectLength;
+  var end = begin + items * objectLength;
 
-    var airport, begin, end;
-    if (airports.range && airports.range[offset + i] != null) {
-      airport = airports.range[ "" + (offset + i)];
-    } else {
-      [airport, begin, end] = getAirport(text, indices[i]);
+  while (Object.values(airports).length < items) {
+
+    if (tries > 10) {
+      print('too many tries. something is wrong');
+      break;
     }
 
-    if (airport != null) {
-      airport.delta = offset + i;
-      airports[airport.airportCode] = airport;
-    } else {
-      print(text.substr(indices[i]))
+    /// increment tries
+    tries++;
+
+    [text] = await fetchAirportJson(begin, end);
+
+    var indices = getIndicesOf('airportCode', text);
+
+    for (var i = 0; i < indices.length; i++) {
+
+      var airport;
+      if (airports.range && airports.range[offset + i] != null) {
+        airport = airports.range["" + (offset + i)];
+      } else {
+        [airport,] = getAirport(text, indices[i]);
+      }
+
+      if (airport != null) {
+        airport.delta = offset + i;
+        airports[airport.airportCode] = airport;
+      }
+      /// if we havent returned the number of requested
+      /// airports and we had failed airports parse attempt
+      /// then increasing the request range may resolve the error
+      else if (Object.values(airports).length < items) {
+        var msg = `couldnt parse airport at ${indices[i]} of ${text.length} ${text.substr(indices[i])}`;
+        error = { type: PARSE_ERROR, message: msg };
+        print(msg);
+        if (text.length - indices[i] < 1000) {
+          print(`didnt reach closing bracket from offset ${indices[i]}
+            increase fetch range until object is resolved
+            increase request range from ${end} to ${end + objectLength}`);
+
+          end += objectLength;
+        }
+      }
     }
+    print(`we got ${Object.values(airports).length} airports out of ${items}`);
   }
 
   return airports;
