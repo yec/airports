@@ -293,6 +293,9 @@ async function fetchAirportRange(offset, items, objectLength, airports) {
 
   while (Object.values(airports).length < items) {
 
+    print(`fetching range ${begin} - ${end}`);
+
+
     if (tries > 10) {
       print('too many tries. something is wrong');
       break;
@@ -307,11 +310,11 @@ async function fetchAirportRange(offset, items, objectLength, airports) {
 
     for (var i = 0; i < indices.length; i++) {
 
-      var airport;
+      var airport, airportBegin, airportEnd;
       if (airports.range && airports.range[offset + i] != null) {
         airport = airports.range["" + (offset + i)];
       } else {
-        [airport,] = getAirport(text, indices[i]);
+        [airport, airportBegin, airportEnd] = getAirport(text, indices[i]);
       }
 
       if (airport != null) {
@@ -327,11 +330,16 @@ async function fetchAirportRange(offset, items, objectLength, airports) {
         print(msg);
         if (text.length - indices[i] < 1000) {
           print(`didnt reach closing bracket from offset ${indices[i]}
-            increase fetch range until object is resolved
-            increase request range from ${end} to ${end + objectLength}`);
-
-          end += objectLength;
-        }
+            increase fetch range until object is resolved`);
+            if (null == airportBegin) {
+              print(`decrease begin from ${begin} to ${begin - objectLength/2}`);
+              begin -= objectLength/2;
+            }
+            else if (null == airportEnd) {
+              print(`increase end from ${end} to ${end + objectLength}`);
+              end += objectLength;
+            }
+          }
       }
     }
     print(`we got ${Object.values(airports).length} airports out of ${items}`);
